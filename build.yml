@@ -1,0 +1,41 @@
+name: Build Q45 Monitor
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run parser/crossfeed tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -ISource tests/test_core.cpp -o core_tests
+          ./core_tests
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G Xcode -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --target Q45Monitor_AU Q45Monitor_VST3
+
+      - name: Ad-hoc sign and package
+        run: |
+          mkdir -p dist
+          cp -R "build/Q45Monitor_artefacts/Release/AU/Q45 Monitor.component" dist/
+          cp -R "build/Q45Monitor_artefacts/Release/VST3/Q45 Monitor.vst3" dist/
+          codesign --force --deep -s - "dist/Q45 Monitor.component"
+          codesign --force --deep -s - "dist/Q45 Monitor.vst3"
+          ditto -c -k --keepParent dist Q45Monitor-macOS.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Q45Monitor-macOS
+          path: Q45Monitor-macOS.zip
